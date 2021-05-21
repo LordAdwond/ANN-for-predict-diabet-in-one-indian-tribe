@@ -1,10 +1,12 @@
-﻿#include <iostream>
+﻿#include <algorithm>
+#include <iostream>
 #include <fstream>
 #include <cstdlib>
 #include <string>
 #include <vector>
 #include <array>
 #include <cmath>
+#include <ctime>
 
 using namespace std;
 
@@ -20,11 +22,18 @@ double dEdW1ij(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< 
 double dEdW2ij(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, vector<double>, int, int);
 double dEdW3i(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, vector<double>, int);
 
+double transformResult(array<double, 5>, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >);
+double accuracy(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, vector<double>);
+double metrics(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, vector<double>);
+
+void shake(vector< array<double, 5> >&, vector<double>&);
+
 int main()
 {
     fstream XFile, yFile; // files with data: X has parameters values, y has results
+    double precision = 0;
     int i = 0, j = 0, k = 0;
-    int iters = 0;
+    int ages = 1;
 
     XFile.open("X.txt", ios_base::binary | ios_base::in);
     yFile.open("y.txt", ios_base::binary | ios_base::in);
@@ -89,31 +98,37 @@ int main()
             W3[i] = 1;
         }
 
-        cout << "Data is read\n\nEnter number of iterations:" << endl;
-        cin >> iters;
+        cout << "Data is read\n\nEnter precision of metrics: "; cin >> precision;
+        cout << "Enter number of ages: "; cin >> ages;
         //studying of model
-        for (; k < iters; ++k)
+        for (k = 0; k < ages; ++k)
         {
-            for (i = 0; i < 2; ++i)
+            shake(X, y);
+            while (metrics(X, W1, W2, W3, y) > precision)
             {
-                for (j = 0; j < 5; j++)
+                for (i = 0; i < 2; ++i)
                 {
-                    W1[i][j] -= dEdW1ij(X, W1, W2, W3, y, i, j);
+                    for (j = 0; j < 5; j++)
+                    {
+                        W1[i][j] -= dEdW1ij(X, W1, W2, W3, y, i, j);
+                    }
+                    for (j = 0; j < 2; j++)
+                    {
+                        W2[i][j] -= dEdW2ij(X, W1, W2, W3, y, i, j);
+                    }
+                    for (j = 0; j < 2; ++j)
+                    {
+                        W3[j] -= dEdW3i(X, W1, W2, W3, y, j);
+                    }
                 }
-                for (j = 0; j < 2; j++)
-                {
-                    W2[i][j] -= dEdW2ij(X, W1, W2, W3, y, i, j);
-                }
-                for (j = 0; j < 2; ++j)
-                {
-                    W3[j] -= dEdW3i(X, W1, W2, W3, y, j);
-                }
+
             }
-            
         }
 
-        cout << "\n\n\nNeural network is studied." << endl;
+        cout << "\n\nNeural network is studied." << endl;
         cout << "Error on data: " << loss(X, y, W1, W2, W3) << endl;
+        cout << "Accuracy: " << accuracy(X, W1, W2, W3, y) << endl;
+        cout << "Metrics L22: " << metrics(X, W1, W2, W3, y) << endl;
     }
     else
     {
@@ -213,4 +228,59 @@ double dEdW3i(vector< array<double, 5> > X, array< array<double, 5>, 2 > W1, arr
     newW3[i] += h;
 
     return (loss(X, y, W1, W2, newW3) - loss(X, y, W1, W2, W3)) / h;
+}
+
+double transformResult(array<double, 5> X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3)
+{
+    return resultFunction(X, W1, W2, W3) > 0.5 ? 1 : 0;
+}
+double accuracy(vector< array<double, 5> > X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3, vector<double> y)
+{
+    double acc = 0;
+    int i = 0;
+
+    for (; i < X.size(); ++i)
+    {
+        acc += (float)(transformResult(X[i], W1, W2, W3)==y[i]);
+    }
+    acc /= X.size();
+
+    return acc;
+}
+
+double metrics(vector< array<double, 5> > X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3, vector<double> y)
+{
+    double S = 0;
+    int i = 0, j = 0;
+
+    for (; i < 2; ++i)
+    {
+        for (j = 0; j < 5; ++j)
+        {
+            S += pow(dEdW1ij(X, W1, W2, W3, y, i, j), 2);
+        }
+        for (j = 0; j < 2; ++j)
+        {
+            S += pow(dEdW2ij(X, W1, W2, W3, y, i, j), 2);
+        }
+    }
+    for (i = 0; i < 2; ++i)
+    {
+        S += pow(dEdW3i(X, W1, W2, W3, y, i), 2);
+    }
+
+    return sqrt(S);
+}
+
+void shake(vector< array<double, 5> >& X, vector<double>& y)
+{
+    int i = 0, c = 0;
+    for (i = X.size() - 1; i>2; --i)
+    {
+        srand(time(0));
+
+        c = rand() % i;
+        swap(X[i], X[c]);
+        swap(y[i], y[c]);
+    }
 }
