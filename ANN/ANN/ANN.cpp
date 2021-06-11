@@ -1,5 +1,7 @@
 ﻿#include <algorithm>
 #include <iostream>
+//#include <functional>
+//#include <algorithm>
 #include <fstream>
 #include <cstdlib>
 #include <string>
@@ -10,29 +12,25 @@
 
 using namespace std;
 
-double scalarMult(array<double, 5>, array<double, 5>);
-double scalarMult(array<double, 2>, array<double, 2>);
-double sigmoid(array<double, 5>, array<double, 5>);
-double sigmoid(array<double, 2>, array<double, 2>);
+double scalarMult(array<double, 5>&, array<double, 5>&);
+double scalarMult(array<double, 10>&, array<double, 10>&);
+double sigmoid(array<double, 5>&, array<double, 5>&);
 double sigmoid(double x);
-double resultFunction(array<double, 5>, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >);
-double error(array<double, 5>, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, double);
-double loss(vector< array<double, 5> >, vector<double>, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >);
-double dEdW1ij(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, vector<double>, int, int);
-double dEdW2ij(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, vector<double>, int, int);
-double dEdW3i(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, vector<double>, int);
+double f(array<double, 5>&, array< array<double, 5>, 10 >&, array< double, 10 >&);
+double loss(vector< array<double, 5> >&, array< array<double, 5>, 10 >&, array< double, 10 >&, vector<double>&);
 
-double transformResult(array<double, 5>, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >);
-double accuracy(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, vector<double>);
-double metrics(vector< array<double, 5> >, array< array<double, 5>, 2 >, array< array<double, 2>, 2 >, array< double, 2 >, vector<double>);
+double dLOSSdW(vector< array<double, 5> >&, array< array<double, 5>, 10 >&, array< double, 10 >&, vector<double>, int, int, int);
+void updateWeights(vector< array<double, 5> >&, array< array<double, 5>, 10 >&, array< double, 10 >&, vector<double>, int, int, int);
 
-void shake(vector< array<double, 5> >&, vector<double>&);
+double transformResult(array<double, 5>&, array< array<double, 5>, 10 >&, array< double, 10 >&);
+double accuracy(vector< array<double, 5> >&, array< array<double, 5>, 10 >&, array< double, 10 >&, vector<double>&);
 
 int main()
 {
     fstream XFile, yFile; // files with data: X has parameters values, y has results
-    double precision = 0;
-    int i = 0, j = 0, k = 0;
+    int numberOfUpdates = 0; // number of updates
+    double m1 = 0, m2 = 0; // variables for saving of differences metrics
+    int i = 0, j = 0, k = 0, updates = 0;
     int ages = 1;
 
     XFile.open("X.txt", ios_base::binary | ios_base::in);
@@ -46,9 +44,9 @@ int main()
         vector<double> y; // vector of values
         array<double, 5> object; // vector of parameter values for object
         string value; // a some value
-        array< array<double, 5>, 2 > W1;
-        array< array<double, 2>, 2 > W2;
-        array< double, 2 > W3;
+        array< array<double, 5>, 10 > W1; // first weight matrix
+        array< double, 10 > W2; // second weight matrix
+        char toPredict = 'n';
         
         //reading data from files
         cout << "Files are opened" << endl;
@@ -85,50 +83,59 @@ int main()
             }
         }
 
-        for (i = 0; i < 2; ++i)
+        for (i = 0; i < 10; ++i)
         {
             for (j = 0; j < 5; ++j)
             {
                 W1[i][j] = 1;
             }
-            for (j = 0; j < 2; ++j)
-            {
-                W2[i][j] = 1;
-            }
-            W3[i] = 1;
+            W2[i] = 1;
         }
 
-        cout << "Data is read\n\nEnter precision of metrics: "; cin >> precision;
-        cout << "Enter number of ages: "; cin >> ages;
+        cout << "Data is read\n\nEnter number of updates per epoch: "; cin >> numberOfUpdates;
+        cout << "Enter number of epochs: "; cin >> ages;
         //studying of model
         for (k = 0; k < ages; ++k)
         {
-            shake(X, y);
-            while (metrics(X, W1, W2, W3, y) > precision)
+            for(updates=0; updates< numberOfUpdates; ++updates)
             {
-                for (i = 0; i < 2; ++i)
+
+                for (i = 0; i < 10; ++i)
                 {
-                    for (j = 0; j < 5; j++)
+                    for (j = 0; j < 5; ++j)
                     {
-                        W1[i][j] -= dEdW1ij(X, W1, W2, W3, y, i, j);
+                        updateWeights(X, W1, W2, y, i, j, 1);
                     }
-                    for (j = 0; j < 2; j++)
-                    {
-                        W2[i][j] -= dEdW2ij(X, W1, W2, W3, y, i, j);
-                    }
-                    for (j = 0; j < 2; ++j)
-                    {
-                        W3[j] -= dEdW3i(X, W1, W2, W3, y, j);
-                    }
+                    updateWeights(X, W1, W2, y, i, 0, 2);
                 }
 
             }
+            
         }
 
         cout << "\n\nNeural network is studied." << endl;
-        cout << "Error on data: " << loss(X, y, W1, W2, W3) << endl;
-        cout << "Accuracy: " << accuracy(X, W1, W2, W3, y) << endl;
-        cout << "Metrics L22: " << metrics(X, W1, W2, W3, y) << endl;
+        cout << "Accuracy: " << accuracy(X, W1, W2, y) << endl;
+
+        cout << "Do you want to predict outcome? (y/n) "; cin >> toPredict;
+        while (toPredict == 'y')
+        {
+            cout << "Blood Pressure: "; cin >> object[0];
+            cout << "Insulin: "; cin >> object[1];
+            cout << "BMI: "; cin >> object[2];
+            cout << "Diabetes Pedigree Function: "; cin >> object[3];
+            cout << "Age: "; cin >> object[4];
+
+            cout << "Have diabet? ";
+            if (transformResult(object, W1, W2))
+            {
+                cout << "Yes";
+            }
+            else
+            {
+                cout << "No";
+            }
+            cout << "\nAgain? (y/n) "; cin >> toPredict;
+        }
     }
     else
     {
@@ -142,7 +149,7 @@ int main()
     system("pause");
 }
 
-double scalarMult(array<double, 5> W, array<double, 5> X)
+double scalarMult(array<double, 5>& W, array<double, 5>& X)
 {
     double S = 0;
 
@@ -153,11 +160,11 @@ double scalarMult(array<double, 5> W, array<double, 5> X)
 
     return S;
 }
-double scalarMult(array<double, 2> W, array<double, 2> X)
+double scalarMult(array<double, 10>& W, array<double, 10>& X)
 {
     double S = 0;
 
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < 10; ++i)
     {
         S += W[i] * X[i];
     }
@@ -165,122 +172,112 @@ double scalarMult(array<double, 2> W, array<double, 2> X)
     return S;
 }
 
-double sigmoid(array<double, 5> W, array<double, 5> X)
+double sigmoid(array<double, 5>& x, array<double, 5>& w)
 {
-    return 1 / (1 + exp(-scalarMult(W, X)));
-}
-double sigmoid(array<double, 2> W, array<double, 2> X)
-{
-    return 1 / (1 + exp(-scalarMult(W, X)));
+    return 1 / (1 + exp(-scalarMult(x, w)));
 }
 double sigmoid(double x)
 {
     return 1 / (1 + exp(-x));
 }
 
-
-double resultFunction(array<double, 5> X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3)
-{
-    array<double, 2> h1 = { sigmoid(W1[0], X),  sigmoid(W1[1], X) },
-                     h2 = { sigmoid(W2[0], h1), sigmoid(W2[1], h1) };
-
-    return sigmoid(W3, h2);
-}
-
-
-double error(array<double, 5> X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3, double y)
-{
-    return fabs(resultFunction(X, W1, W2, W3)-y);
-}
-
-double loss(vector< array<double, 5> > X, vector<double> y, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3)
+double f(array<double, 5>& X, array< array<double, 5>, 10 >& W1, array< double, 10 >& W2)
 {
     double S = 0;
+    int i = 0;
 
-    for (int i = 0; i < X.size(); ++i)
+    for (i = 0; i < 10; ++i)
     {
-        S += pow( error(X[i], W1, W2, W3, y[i]), 2 );
+        S += W2[i] * scalarMult(W1[i], X);
+    }
+
+    return S;
+}
+
+double loss(vector< array<double, 5> >& X, array< array<double, 5>, 10 >& W1, array< double, 10 >& W2, vector<double>& y)
+{
+    double S = 0;
+    int i = 0;
+
+    for (i = 0; i < (int)(X.size()); ++i)
+    {
+        S += pow(f(X[i], W1, W2), 2);
     }
 
     return S / X.size();
 }
 
-double dEdW1ij(vector< array<double, 5> > X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3, vector<double> y, int i, int j)
+double dLOSSdW(vector< array<double, 5> >& X, array< array<double, 5>, 10 >& W1, array< double, 10 >& W2, vector<double> y, int i, int j, int matrix)
 {
-    array< array<double, 5>, 2 > newW1 = W1;
-    double h = 0.001;
-    newW1[i][j] += h;
+    double h = 0.0001;
 
-    return ( loss(X, y, newW1, W2, W3) - loss(X, y, W1, W2, W3)) / h;
-}
-double dEdW2ij(vector< array<double, 5> > X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3, vector<double> y, int i, int j)
-{
-    array< array<double, 2>, 2 > newW2 = W2;
-    double h = 0.001;
-    newW2[i][j] += h;
+    if (matrix == 1)
+    {
+        if ((i >= 0 && i < 10) && (j >= 0 && j < 5))
+        {
+            array< array<double, 5>, 10 > newW1 = W1;
+            newW1[i][j] += h;
 
-    return (loss(X, y, W1, newW2, W3) - loss(X, y, W1, W2, W3)) / h;
-}
-double dEdW3i(vector< array<double, 5> > X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3, vector<double> y, int i)
-{
-    array<double, 2> newW3 = W3;
-    double h = 0.001;
-    newW3[i] += h;
+            return (loss(X, newW1, W2, y) - loss(X, W1, W2, y)) / h;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    else if (matrix == 2)
+    {
+        if (i >= 0 && i < 10)
+        {
+            array< double, 10 > newW2 = W2;
+            newW2[i] += h;
 
-    return (loss(X, y, W1, W2, newW3) - loss(X, y, W1, W2, W3)) / h;
+            return (loss(X, W1, newW2, y) - loss(X, W1, W2, y)) / h;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    else
+    {
+        return 0;
+    }
 }
 
-double transformResult(array<double, 5> X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3)
+void updateWeights(vector< array<double, 5> >& X, array< array<double, 5>, 10 >& W1, array< double, 10 >& W2, vector<double> y, int i, int j, int matrix)
 {
-    return resultFunction(X, W1, W2, W3) > 0.5 ? 1 : 0;
+    int m = 0;
+
+    for (m = 1; m <= 2; ++m)
+    {
+        if (m == 1) 
+        {
+            W1[i][j] -= dLOSSdW(X, W1, W2, y, i, j, m);
+        }
+        else
+        {
+            W2[i] -= dLOSSdW(X, W1, W2, y, i, j, m);
+        }
+    }
 }
-double accuracy(vector< array<double, 5> > X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3, vector<double> y)
+
+double transformResult(array<double, 5>& X, array< array<double, 5>, 10 >& W1, array< double, 10 >& W2)
 {
-    double acc = 0;
+    return f(X, W1, W2) <= 0.5 ? 0 : 1;
+}
+double accuracy(vector< array<double, 5> >& X, array< array<double, 5>, 10 >& W1, array< double, 10 >& W2, vector<double>& y)
+{
+    double k = 0;
     int i = 0;
 
-    for (; i < X.size(); ++i)
+    for (i = 0; i < (int)(X.size()); ++i)
     {
-        acc += (float)(transformResult(X[i], W1, W2, W3)==y[i]);
-    }
-    acc /= X.size();
-
-    return acc;
-}
-
-double metrics(vector< array<double, 5> > X, array< array<double, 5>, 2 > W1, array< array<double, 2>, 2 > W2, array< double, 2 > W3, vector<double> y)
-{
-    double S = 0;
-    int i = 0, j = 0;
-
-    for (; i < 2; ++i)
-    {
-        for (j = 0; j < 5; ++j)
+        if (transformResult(X[i], W1, W2) == y[i])
         {
-            S += pow(dEdW1ij(X, W1, W2, W3, y, i, j), 2);
-        }
-        for (j = 0; j < 2; ++j)
-        {
-            S += pow(dEdW2ij(X, W1, W2, W3, y, i, j), 2);
+            ++k;
         }
     }
-    for (i = 0; i < 2; ++i)
-    {
-        S += pow(dEdW3i(X, W1, W2, W3, y, i), 2);
-    }
 
-    return sqrt(S);
-}
-
-void shake(vector< array<double, 5> >& X, vector<double>& y)
-{
-    int i = 0, c = 0;
-    for (i = X.size() - 1; i>2; --i)
-    {
-        srand(time(0));
-
-        c = rand() % i;
-        swap(X[i], X[c]);
-        swap(y[i], y[c]);
-    }
+    return k / X.size();
 }

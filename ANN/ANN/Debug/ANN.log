@@ -1,5 +1,2 @@
 ﻿  ANN.cpp
-E:\projects\ANNforUdemyBusinessCources\ANN\ANN\ANN.cpp(200,23): warning C4018: <: несоответствие типов со знаком и без знака
-E:\projects\ANNforUdemyBusinessCources\ANN\ANN\ANN.cpp(242,14): warning C4018: <: несоответствие типов со знаком и без знака
-E:\projects\ANNforUdemyBusinessCources\ANN\ANN\ANN.cpp(280,19): warning C4244: аргумент: преобразование "time_t" в "unsigned int", возможна потеря данных
   ANN.vcxproj -> E:\projects\ANNforUdemyBusinessCources\ANN\Debug\ANN.exe
